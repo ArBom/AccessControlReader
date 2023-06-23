@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "AccessControlReader": {
+      "commandName": "Project",
+      "remoteDebugEnabled": false,
+      "remoteDebugMachine": "raspberrypi.local",
+      "authenticationMode": "None"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    }
+  }
+}

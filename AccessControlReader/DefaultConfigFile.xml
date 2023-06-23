@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ACConfig>
+  <SQL>
+    <ConnectionString>❗❗❗ INSERT IT HERE ❗❗❗</ConnectionString>
+  </SQL>
+  <Texts>
+    <Ready>Zbliz karte</Ready>
+    <Open>Dzień dobry,</Open>
+    <ButtonClick>Otwarto\nprzyciskiem</ButtonClick>
+    <NoGo>Nie ta karta?</NoGo>
+    <CloseDoorAlert>Zamknij drzwi!</CloseDoorAlert>
+    <UnActive>! BLOKADA !</UnActive>
+    <UnaOpen> ! WŁAMANIE !</UnaOpen>
+    <DoorReminder>Zamknij za\nsobą drzwi.</DoorReminder>
+  </Texts>
+  <Noises>
+    !You can insert whole paths below
+    <Open>mixkit-2870.wav</Open>
+    <NoGo>mixkit-946.wav</NoGo>
+    <Alert>mixkit-2861.wav</Alert>
+    <SecurityAlarm>mixkit-994.wav</SecurityAlarm>
+    <Error>mixkit-948.wav</Error>
+  </Noises>
+  <Devices>
+    <PinsIO>
+      !Times in misisecs (1s = 1000)
+      <TimeOfBolt>5000</TimeOfBolt>
+      <TimeDoorOpenAlert>15000</TimeDoorOpenAlert>
+      <PinBolt>26</PinBolt>
+      <PinExitButton>16</PinExitButton>
+      <EventTypeExitButton>false</EventTypeExitButton> !True - react for signal rising / False - react for signal falling
+      <PinRedLight>17</PinRedLight>
+      <PinGreenLight>18</PinGreenLight>
+      <PinDoorSensor>27</PinDoorSensor>
+      <PositiveLogicBolt>True</PositiveLogicBolt>
+      <PositiveLogicDoorSensor>False</PositiveLogicDoorSensor>
+    </PinsIO>
+    <ReaderRFID>
+      <ReaderRFIDPinReset>25</ReaderRFIDPinReset>
+      <ReaderRFIDSpiBusId>0</ReaderRFIDSpiBusId>
+      <ReaderRFIDChipSelectLine>0</ReaderRFIDChipSelectLine>
+    </ReaderRFID>
+    <I2Cscreen>
+      <I2CScreenBusId>1</I2CScreenBusId>
+      <I2CScreenaddr>27</I2CScreenaddr> !hex without prefix
+      <Uses8BitScreen>false</Uses8BitScreen>
+    </I2Cscreen>
+  </Devices>
+</ACConfig>
