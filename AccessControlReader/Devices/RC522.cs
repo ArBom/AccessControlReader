@@ -1,15 +1,7 @@
-﻿using AccessControlReader.StateMachine;
-using Iot.Device.Mfrc522;
+﻿using Iot.Device.Mfrc522;
 using Iot.Device.Rfid;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using SixLabors.ImageSharp.PixelFormats;
-using System;
-using System.Collections.Generic;
 using System.Device.Gpio;
 using System.Device.Spi;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Timers;
 using System.Xml.Linq;
 
@@ -23,7 +15,7 @@ namespace AccessControlReader.Devices
 
         readonly MfRc522 mfRc522;
         Data106kbpsTypeA card = null;
-        string LastReadValue;
+        //string LastReadValue;
 
         //bool LastLoopCardPresent;
         readonly System.Timers.Timer readingTimer;
@@ -33,18 +25,20 @@ namespace AccessControlReader.Devices
 
         public RC522(XElement Config)
         {
+            if (Config is null)
+            {
+                errorEvent(GetType(), "RC522: Config is null", 40, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML, ErrorTypeIcon.RFID });
+            }
             try
             {
                 this.pinReset = int.Parse(Config.Element("ReaderRFIDPinReset").Value);
                 this.SpiBusId = int.Parse(Config.Element("ReaderRFIDSpiBusId").Value);
                 this.SpiChipSelectLine = int.Parse(Config.Element("ReaderRFIDChipSelectLine").Value);
             }
-            catch
+            catch (Exception ex)
             {
-
+                errorEvent(GetType(), ex.Message, 41, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML, ErrorTypeIcon.RFID });
             }
-
-            LastReadValue = null;
 
             readingTimer = new System.Timers.Timer()
             {
@@ -54,7 +48,7 @@ namespace AccessControlReader.Devices
             };
             readingTimer.Elapsed += OnTimedEvent;
 
-            SpiConnectionSettings spiConnectionSettings = new(SpiBusId) //0
+            SpiConnectionSettings spiConnectionSettings = new(SpiBusId)
             {
                 ChipSelectLine = SpiChipSelectLine,               
 
@@ -73,7 +67,10 @@ namespace AccessControlReader.Devices
         {
             mfRc522.Enabled = true;
             readingTimer.Start();
-            Console.WriteLine(mfRc522.Version); //TODO
+            if (mfRc522.Version != new Version(1,0) && mfRc522.Version != new Version(2,0))
+            {
+                errorEvent(GetType(), "Unknow reader version", 42, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.RFID });
+            }
         }
 
         public void StopReading()
@@ -91,9 +88,9 @@ namespace AccessControlReader.Devices
 
             if (this.mfRc522 is null)
                 {
-                    //TODO critical error
-                    Console.WriteLine("mfRc522 is not an object!");
-                    return;
+                errorEvent(GetType(), "mfRc522 is not an object", 43, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.RFID });
+                Console.WriteLine("mfRc522 is not an object!");
+                return;
                 }
 
             if (mfRc522.IsCardPresent(atqa))
@@ -108,8 +105,6 @@ namespace AccessControlReader.Devices
 
                 //remove the "-"signs from NFC_ID
                 byte[] new_NFC_ID = NFC_ID.TakeWhile((v, index) => NFC_ID.Skip(index).Any(w => w != '-')).ToArray();
-
-                LastReadValue = BitConverter.ToString(NFC_ID).Replace("-", "");
 
                 //convert to Uint
                 UInt32 Uint_NFC_ID = BitConverter.ToUInt32(new_NFC_ID, 0);

@@ -11,13 +11,17 @@ namespace AccessControlReader.StateMachine
         public static RC522 _rC522;
         public static Screen _screen;
 
+        //Activities of state, like: GPIO output, animation, etc.
         protected List<Task> StateTasks;
 
         protected readonly string details;
 
+        //Token make of to cancel StateTasks
         protected CancellationTokenSource _currentState_CancelationTokenSource;
 
+        //Possible transition for this state
         protected Dictionary<EventType, Type> reactTo;
+
         public State(string details)
         {
             StateTasks = new List<Task>();
@@ -28,11 +32,13 @@ namespace AccessControlReader.StateMachine
             this.details = details;
         }
 
+        public static ErrorEvent errorEvent;
+
         public static void SetTexts(XElement Config)
         {
             if (Config is null)
             {
-                //TODO obsługa w przypadku null
+                errorEvent(typeof(State), "State: Config is null", 60, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.XML });
             }
 
             try
@@ -47,9 +53,9 @@ namespace AccessControlReader.StateMachine
                 ReStillOpenState.DefaultMessage = Config.Element("DoorReminder").Value;
                 ReOpenButtonState.DefaultMessage = Config.Element("ButtonClick").Value;
             }
-            catch
+            catch( Exception ex)
             {
-
+                errorEvent(typeof(State), ex.ToString(), 61, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.XML });
             }
         }
 
@@ -72,7 +78,7 @@ namespace AccessControlReader.StateMachine
 
         public void Dispose()
         {
-            _currentState_CancelationTokenSource?.Cancel();
+            _currentState_CancelationTokenSource.Cancel();
             OnExit();
             Task.WhenAll(StateTasks);
         }

@@ -7,18 +7,68 @@ using System.Globalization;
 
 namespace AccessControlReader.Devices
 {
-    internal class Screen
+    internal sealed class Screen
     {
         readonly private int I2Cdevno;
         readonly private byte I2Caddr;
         readonly private bool Uses8Bit;
         readonly private Lcd1602 lcd;
 
-        private object send_lock = new();
+        /// <summary>
+        /// IMPORTANT: Only one task could send data to the screen in one moment
+        /// </summary>
+        private readonly object send_lock = new();
+
+        /// <summary>
+        /// [0] - current text, [1] - previous one
+        /// </summary>
+        private readonly string[] LastWrites = new string[] { null, null };
 
         public static ErrorEvent errorEvent;
 
+        //Does the screen show a icon in the left part
         private bool icon = true;
+
+        public Screen(XElement Config)
+        {
+            if (Config == null)
+            {
+                errorEvent(GetType(), "Screen: Config is null", 50, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML });
+            }
+
+            try
+            {
+                I2Cdevno = int.Parse(Config.Element("I2CScreenBusId").Value);
+                string I2CaddrStr = Config.Element("I2CScreenaddr").Value;
+                I2Caddr = byte.Parse(I2CaddrStr, NumberStyles.HexNumber);
+                Uses8Bit = bool.Parse(Config.Element("Uses8BitScreen").Value);
+            }
+            catch (Exception ex)
+            {
+                errorEvent(GetType(), ex.ToString(), 51, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML });
+            }
+
+            I2cDevice screenI2C = I2cDevice.Create(new I2cConnectionSettings(I2Cdevno, I2Caddr));
+
+            Span<byte> outbutBuff = new();
+            screenI2C.WriteRead(new byte[0x00], outbutBuff);
+
+            //todo
+            Console.WriteLine("Odp. wyświetlacza na zaczepkę: " + outbutBuff.ToString());
+
+            this.lcd = new Lcd1602(screenI2C, Uses8Bit);
+
+            //TODO może jakaś diagnostyka czy cos
+            lock (send_lock)
+            {
+                lcd.DisplayOn = true;
+                lcd.Clear();
+                lcd.BacklightOn = true;
+            }
+
+            Write(@"LCD screen:\nOK");
+        }
+
         public bool Icon
         {
             get { return icon; }
@@ -26,8 +76,8 @@ namespace AccessControlReader.Devices
             { 
                 if (value)
                 {
-                  byte[][] image0 = new byte[][]
-                  { new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+                    byte[][] image0 = new byte[][]
+                               {new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
@@ -40,24 +90,16 @@ namespace AccessControlReader.Devices
                             lcd.CreateCustomCharacter(i, image0[i]);
 
                         lcd.SetCursorPosition(0, 0);
-                        lcd.Write(new String(new char[] { (char)0 }));
-                        lcd.Write(new String(new char[] { (char)1 }));
-                        lcd.Write(new String(new char[] { (char)2 }));
+                        lcd.Write(new char[] { (char)0, (char)1, (char)2 });
 
                         lcd.SetCursorPosition(0, 1);
-                        lcd.Write(new String(new char[] { (char)3 }));
-                        lcd.Write(new String(new char[] { (char)4 }));
-                        lcd.Write(new String(new char[] { (char)5 }));
+                        lcd.Write(new char[] { (char)3, (char)4, (char)5 });
                     }
                 }
 
-                icon = value; 
+                icon = value;
+                Write(LastWrites[0]);
             }
-        }
-
-        public void ErrorMess(int ErrorNumber)
-        { 
-            throw new NotImplementedException();
         }
 
         public void Write(string ToWrite)
@@ -83,13 +125,19 @@ namespace AccessControlReader.Devices
                 lock (send_lock)
                 {
                     lcd.Clear();
-                    lcd.SetCursorPosition(0, 0);
                 }
             }
+
             if (String.IsNullOrEmpty(ToWrite))
                 return;
-           
-            
+
+            //updade the history
+            if (LastWrites[0] != ToWrite)
+            {
+                LastWrites[1] = LastWrites[0];
+                LastWrites[0] = ToWrite;
+            }
+
             string newLineSep = @"\n";
             ToWrite = newLineSep + ToWrite;
             string[] subsLin = ToWrite.Split(newLineSep, StringSplitOptions.RemoveEmptyEntries);
@@ -130,49 +178,23 @@ namespace AccessControlReader.Devices
             }
         }
 
-        public Screen(XElement Config)
+        public void WriteErrorText(int ErrorNumber)
         {
-            if (Config == null)
-            {
-                //TODO
-            }
-
-            try
-            {
-                I2Cdevno = int.Parse(Config.Element("I2CScreenBusId").Value);
-                string r = Config.Element("I2CScreenaddr").Value;
-                I2Caddr = byte.Parse(r, System.Globalization.NumberStyles.HexNumber);
-                Uses8Bit = bool.Parse(Config.Element("Uses8BitScreen").Value);
-            }
-            catch (System.Exception e)
-            {
-                string er = e.ToString();
-            }
-
-            I2cDevice screenI2C = I2cDevice.Create(new I2cConnectionSettings(I2Cdevno, I2Caddr));
-            this.lcd = new Lcd1602(screenI2C, Uses8Bit);
-
-            //TODO jakaś diagnostyka czy cos
-            lock (send_lock)
-            {
-                lcd.DisplayOn = true;
-                lcd.Clear();
-                lcd.BacklightOn = true;
-            }
-
-            Write(@"LCD screen:\nOK");
+            throw new NotImplementedException();
         }
+
+        public void WriteOldText() => Write(LastWrites[1]);
 
         public void DisplayLightOn()
         {
             lock (send_lock)
-                this.lcd.BacklightOn = true;
+                lcd.BacklightOn = true;
         }
 
         public void DisplayLightOff()
         {
             lock (send_lock)
-                this.lcd.BacklightOn = false;
+                lcd.BacklightOn = false;
         }
 
         public Task DisplayLightBlink(CancellationTokenSource CancelationObj)
@@ -197,22 +219,22 @@ namespace AccessControlReader.Devices
             return task;
         }
 
+        public void StartAnimation(AnimationType animationType, CancellationTokenSource CancelAnimTaken, bool loop, params ErrorTypeIcon[] listOfParams)
+        {
+            if (icon)
+                Animations.StartAnimation(lcd, animationType, send_lock, CancelAnimTaken, loop, listOfParams); //TODO sprawdzić czy nie referencja sendlocka
+        }
+
         ~Screen()
         {
-            if (this.lcd != null)
+            if (lcd != null)
             {
                 lock (send_lock)
                 {
-                    this.lcd.DisplayOn = false;
-                    this.lcd.Dispose();
+                    lcd.DisplayOn = false;
+                    lcd.Dispose();
                 }
             }
-        }
-
-        public void StartAnimation(AnimationType animationType, CancellationTokenSource CancelAnimTaken, bool loop)
-        {
-            if (icon)
-                Animations.StartAnimation(this.lcd, animationType, ref send_lock, CancelAnimTaken, loop);
         }
     }
 }

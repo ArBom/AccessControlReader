@@ -1,5 +1,7 @@
 ﻿using AccessControlReader.Devices;
 using AccessControlReader.StateMachine.States;
+using Iot.Device.Mcp23xxx;
+using System.Net.NetworkInformation;
 using System.Timers;
 
 namespace AccessControlReader.StateMachine
@@ -9,6 +11,7 @@ namespace AccessControlReader.StateMachine
         private State ActualState;
         private readonly System.Timers.Timer CheckingMainStateTimer;
         private readonly System.Timers.Timer ExitFromWrongCardStateTimer;
+        private Nullable<Error> CurrentError;
 
         private GPIO _gpio;
         public GPIO gpio
@@ -63,7 +66,9 @@ namespace AccessControlReader.StateMachine
             set
             {
                 if (_accessControlDb != null)
+                {
                     _accessControlDb.DataBaseEvent -= EnterNewState;
+                }
 
                 if (_accessControlDb != null && rC5221 != null)
                     rC5221.newCardRead -= _accessControlDb.CheckCard;
@@ -82,12 +87,15 @@ namespace AccessControlReader.StateMachine
         public StateMachine() 
         { 
             ActualState = new InitState(null);
+            CurrentError = null;
 
             GPIO.errorEvent += ErrorHappens;
             Noises.errorEvent += ErrorHappens;
             RC522.errorEvent += ErrorHappens;
             Screen.errorEvent += ErrorHappens;
             Configurator.errorEvent += ErrorHappens;
+            State.errorEvent += ErrorHappens;
+            AccessControlDb.errorEvent += ErrorHappens;
 
             ExitFromWrongCardStateTimer = new System.Timers.Timer()
             {
@@ -99,7 +107,7 @@ namespace AccessControlReader.StateMachine
             CheckingMainStateTimer = new System.Timers.Timer()
             {
                 //Check it once a minut
-                Interval = 20000,
+                Interval = 60000,
                 AutoReset = true,
             };
             CheckingMainStateTimer.Elapsed += CyclicCheckMainState;
@@ -146,20 +154,109 @@ namespace AccessControlReader.StateMachine
             newState.OnEnter();
         }
 
-        private void ErrorHappens(Type senderType, string details, int number, object[] errorTypes)
+        private void ErrorHappens(Type senderType, string details, int number, ErrorImportant errorImportant, ErrorTypeIcon[] errorTypes)
         {
+            //Currently its with error
+            if (CurrentError.HasValue)
+            {
+                //new error is less important than current
+                if (((int)errorImportant) < ((int)CurrentError.Value.errorImportant))
+                    //ignore new one
+                    return;
+
+                //new error is as important as current...
+                if (((int)errorImportant) == ((int)CurrentError.Value.errorImportant) &&
+                    //...but is in less relevant part of program
+                    number > CurrentError.Value.ErrorNum)
+                    //ignore new one
+                    return;
+            }
+
+            switch (errorImportant) 
+            {
+                case ErrorImportant.Critical:
+                    {
+
+                    }
+                    break;
+
+                case ErrorImportant.Warning:
+                    {
+
+                    }
+                    break;
+
+                case ErrorImportant.Info:
+                    {
+
+                    }
+                    break;
+            }
             ////////
             //TODO//
             ////////
         }
 
+        private void UpdateInitStateData()
+        {
+            if (ActualState is not InitState initState)
+                return;
+
+            var NetwInt = from NI in NetworkInterface.GetAllNetworkInterfaces()
+                          where (NI.NetworkInterfaceType == NetworkInterfaceType.Ethernet ||
+                                 NI.NetworkInterfaceType == NetworkInterfaceType.Wireless80211)
+                          select NI;
+
+            if (!NetwInt.Any())
+            {
+                ErrorHappens(this.GetType(), "No net. card", 3, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN, ErrorTypeIcon.Hardware });
+                return;
+            }
+
+            var NetwIntUp = from NI in NetwInt
+                            where NI.OperationalStatus == OperationalStatus.Up
+                            select NI;
+
+            if (!NetwIntUp.Any())
+            {
+                ErrorHappens(this.GetType(), "No working net. card", 4, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN });
+                return;
+            }
+
+            string macAddr;
+            try
+            {
+                macAddr = NetwIntUp.First().GetPhysicalAddress().ToString();
+            }
+            catch
+            {
+                ErrorHappens(GetType(), "No MAC addr.", 5, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN, ErrorTypeIcon.Hardware });
+                return;
+            }
+            initState.macAddr = macAddr;
+
+            try
+            {
+                initState.ipAddr = NetwInt?.First().GetIPProperties().UnicastAddresses.First().Address.ToString();
+            }
+            catch
+            {
+                ErrorHappens(GetType(), "No IP addr.", 6, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN });
+                return;
+            }           
+
+            ReaderData? newSQLdata = _accessControlDb?.UpdateReader(macAddr);
+        }
+
         private void CyclicCheckMainState(Object source, ElapsedEventArgs e)
         {
             Console.WriteLine("sprawdzam czytnik w sql");
-            if (ActualState.GetType() == typeof(InitState))
+            ReaderData? newSQLdata;
+
+            if (ActualState is InitState initState)
             {
                 string macAddr = ((InitState)ActualState).macAddr;
-                ReaderData? newSQLdata = _accessControlDb?.UpdateReader(macAddr);
+                newSQLdata = _accessControlDb?.UpdateReader(macAddr);
 
                 if (newSQLdata is null)
                     return;
@@ -170,39 +267,27 @@ namespace AccessControlReader.StateMachine
                     EnterNewState(EventType.MainState_Unconfig, "");
                     return;
                 }
-
-                BlockedState.SQLMessage = newSQLdata.Value.ToShow;
-                ReadingState.SQLMessage = newSQLdata.Value.ToShow;
-
-
-
-                if (newSQLdata.Value.IsActive)
-                    //Reader is configurated & active
-                    EnterNewState(EventType.MainState_Reading, newSQLdata.Value.ToShow);
-                else
-                    //Reader is configurated but unactive
-                    EnterNewState(EventType.MainState_Blocked, newSQLdata.Value.ToShow);
-
             }
             else
             {
-                ReaderData? newSQLdata = _accessControlDb?.UpdateReader(); //this reader bywa nullem
+                newSQLdata = _accessControlDb?.UpdateReader(); //todo this reader bywa nullem
 
                 if (newSQLdata is null)
                     return;
 
                 Console.WriteLine("State Machine newSQLdata is not null");
-
-                BlockedState.SQLMessage = newSQLdata.Value.ToShow;
-                ReadingState.SQLMessage = newSQLdata.Value.ToShow;
-
-                if (newSQLdata.Value.IsActive)
-                    //Reader is configurated & active
-                    EnterNewState(EventType.MainState_Reading, newSQLdata.Value.ToShow);
-                else
-                    //Reader is configurated but unactive
-                    EnterNewState(EventType.MainState_Blocked, newSQLdata.Value.ToShow);
             }
+
+            //Set the message on screen with SQL
+            BlockedState.SQLMessage = newSQLdata.Value.ToShow;
+            ReadingState.SQLMessage = newSQLdata.Value.ToShow;
+
+            if (newSQLdata.Value.IsActive)
+                //Reader is configurated & active
+                EnterNewState(EventType.MainState_Reading, newSQLdata.Value.ToShow);
+            else
+                //Reader is configurated but unactive
+                EnterNewState(EventType.MainState_Blocked, newSQLdata.Value.ToShow);
         }
     }
 }

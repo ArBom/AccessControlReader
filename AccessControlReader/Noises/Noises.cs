@@ -3,13 +3,12 @@ using NetCoreAudio;
 
 namespace AccessControlReader
 {
-    public class Noises
+    sealed class Noises
     {
         private readonly Dictionary<NoiseType, string> NoisesPath;
         private readonly Player player;
 
         public static ErrorEvent errorEvent;
-
         public Noises(XElement Config)
         {
             player = new();
@@ -17,13 +16,19 @@ namespace AccessControlReader
 
             if(Config is null)
             {
-                string errorNoisePath = Path.Combine("Noises", "mixkit-948.wav");
-                Task pe = player.Play(errorNoisePath);
-                Task.WhenAny(pe);
+                //try to play error noise
+                try
+                {
+                    string errorNoisePath = Path.Combine("Noises", "mixkit-948.wav");
+                    Task pe = player.Play(errorNoisePath);
+                    Task.WhenAny(pe);
+                }
+                catch { } //There is no sense to overwrite more serious problem
+
+                //There is no sense to try play noises in the future
                 player = null;
 
-                //TODO poinformowanie o bledzie.
-
+                errorEvent(GetType(), "Noises: Config is null", 80, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.XML, ErrorTypeIcon.Speaker });
                 return;
             }
 
@@ -38,7 +43,7 @@ namespace AccessControlReader
                 }
                 catch
                 {
-                    //TODO jakiś warning
+                    errorEvent(GetType(), "Cant open noise file", 83, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Speaker });
                     NoisesPath.Add(Enum.Parse<NoiseType>(TypeOfNoise), null);
                     continue;
                 }
@@ -52,7 +57,7 @@ namespace AccessControlReader
 
                     case null:
                     default:
-                        //TODO jakiś warning
+                        errorEvent(GetType(), "Wrong format of noise file", 84, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Speaker });
                         NoisesPath.Add(Enum.Parse<NoiseType>(TypeOfNoise), null);
                         break;
                 }
@@ -67,6 +72,9 @@ namespace AccessControlReader
 
         private void Play(NoiseType noiseType, params CancellationTokenSource[] CancelationObj)
         {
+            if (player is null)
+                return;
+
             CancellationTokenSource token;
 
             if (CancelationObj.Length != 0)
@@ -83,7 +91,7 @@ namespace AccessControlReader
 
             do
             {
-                Task a = player?.Play(NoisePath);
+                Task a = player.Play(NoisePath);
                 Task.WaitAny(a);
                 Thread.Sleep(1000);
             }

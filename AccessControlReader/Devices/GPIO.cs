@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Device.Gpio;
+﻿using System.Device.Gpio;
 using System.Xml.Linq;
 using System.Timers;
 
 namespace AccessControlReader.Devices
 {
-    class GPIO
+    sealed class GPIO
     {
         public readonly long TimeOfBolt;
         private bool DoorProgrammingOpen = false;
@@ -25,9 +20,7 @@ namespace AccessControlReader.Devices
 
         public static ErrorEvent errorEvent;
         public StateEvent GPIOStateEvent;
-
-        //CancellationTokenSource CancellationTokenDiodeThread;
-        readonly GpioController gpioController;
+        private readonly GpioController gpioController;
 
         System.Timers.Timer timerOfDoorOpen;
         System.Timers.Timer timerOfBolt;
@@ -38,7 +31,7 @@ namespace AccessControlReader.Devices
 
             if(Config is null)
             {
-                //TODO obsługa w przypadku null
+                errorEvent(GetType(), "GPIO: Config is null", 30, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML });
             }
 
             try
@@ -56,50 +49,75 @@ namespace AccessControlReader.Devices
                 PositiveLogicBolt = bool.Parse(Config.Element("PositiveLogicBolt").Value);
                 PositiveLogicDoorOpenSensor = bool.Parse(Config.Element("PositiveLogicDoorSensor").Value);
             }
-            catch
-            { }
+            catch (Exception ex)
+            {
+                errorEvent(GetType(), ex.Message, 31, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML });
+            }
 
             if (TimeOfBolt < 1000)
             {
                 //new time of Bolt -> 5s
                 TimeOfBolt = 5000;
-                //TODO zglasic potencjny blad
+                errorEvent(GetType(), "Time of bolt open cannot be shorter than 1s", 78, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML });
             }
 
-            if (TimeDoorOpenAlert <= 0)
+            if (TimeDoorOpenAlert <= 500)
             {
                 //new time of Bolt -> 10s
                 TimeDoorOpenAlert = 10000;
-                //TODO zglasic potencjny blad
+                errorEvent(GetType(), "Time alert cannot be shorter than .5s", 79, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware, ErrorTypeIcon.XML });
             }
 
             try
             {
+                gpioController.OpenPin(PinExitButton, PinMode.Input);
+                gpioController.OpenPin(PinBolt, PinMode.Output);
                 gpioController.OpenPin(PinRedLight, PinMode.Output, PinValue.Low);
                 gpioController.OpenPin(PinGreenLight, PinMode.Output, PinValue.Low);
-                gpioController.OpenPin(PinBolt, PinMode.Output);
                 gpioController.OpenPin(PinDoorSensor, PinMode.Input);
-                gpioController.OpenPin(PinExitButton, PinMode.Input);
             }
-            catch 
-            { }
+            catch (Exception ex)
+            {
+                errorEvent(GetType(), ex.Message, 35, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+            }
 
-            if (PositiveLogicBolt)
-                gpioController.Write(PinBolt, PinValue.Low);
-            else
-                gpioController.Write(PinBolt, PinValue.High);
+            try
+            {
+                if (PositiveLogicBolt)
+                    gpioController.Write(PinBolt, PinValue.Low);            
+                else
+                    gpioController.Write(PinBolt, PinValue.High);
+            }
+            catch (Exception ex)
+            {
+                errorEvent(GetType(), ex.Message, 34, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+            }
 
-            gpioController.RegisterCallbackForPinValueChangedEvent(PinDoorSensor, PinEventTypes.Falling | PinEventTypes.Rising, OnDoorSensorEvent);
-            
-            if(EventTypeExitButton)
-                gpioController.RegisterCallbackForPinValueChangedEvent(PinExitButton, PinEventTypes.Rising, OnExitButtonPress);
+            if (gpioController.IsPinOpen(PinDoorSensor))
+                gpioController.RegisterCallbackForPinValueChangedEvent(PinDoorSensor, PinEventTypes.Falling | PinEventTypes.Rising, OnDoorSensorEvent);
             else
-                gpioController.RegisterCallbackForPinValueChangedEvent(PinExitButton, PinEventTypes.Falling, OnExitButtonPress);
+                errorEvent(GetType(), "Door Sensor pin is closed", 37, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+
+            if (gpioController.IsPinOpen(PinExitButton))
+            {
+                if (EventTypeExitButton)
+                    gpioController.RegisterCallbackForPinValueChangedEvent(PinExitButton, PinEventTypes.Rising, OnExitButtonPress);
+                else
+                    gpioController.RegisterCallbackForPinValueChangedEvent(PinExitButton, PinEventTypes.Falling, OnExitButtonPress);
+            }
+            else
+                errorEvent(GetType(), "Exit Button pin is closed", 33, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
         }
 
         private void OpenDoorBolt()
         {
             DoorProgrammingOpen = true;
+
+            if (!gpioController.IsPinOpen(PinBolt))
+            {
+                errorEvent(GetType(), "Bolt pin is closed", 32, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+                return;
+            }
 
             if (PositiveLogicBolt)
                 gpioController.Write(PinBolt, PinValue.High);
@@ -109,14 +127,22 @@ namespace AccessControlReader.Devices
 
         private void StopDoorBolt()
         {
-            Thread.Sleep(1000);
+            if (gpioController.IsPinOpen(PinBolt))
+            {
+                Thread.Sleep(1000);
 
-            if (PositiveLogicBolt)
-                gpioController.Write(PinBolt, PinValue.Low);
+                if (PositiveLogicBolt)
+                    gpioController.Write(PinBolt, PinValue.Low);
+                else
+                    gpioController.Write(PinBolt, PinValue.High);
+
+                Thread.Sleep(500); //Time to return of electro-bolt;
+            }
             else
-                gpioController.Write(PinBolt, PinValue.High);
+            {
+                errorEvent(GetType(), "Bolt pin is closed", 36, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+            }
 
-            Thread.Sleep(500); //Time to return of electro-bolt;
             DoorProgrammingOpen = false;
         }
 
@@ -177,6 +203,12 @@ namespace AccessControlReader.Devices
 
         public Task DiodsBlink(object CancelationObj)
         {
+            if (!gpioController.IsPinOpen(PinGreenLight) || !gpioController.IsPinOpen(PinRedLight))
+            {
+                errorEvent(GetType(), "Diod pin(s) closed", 75, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+                return null;
+            }
+
             Task task = new(() =>
             {
                 CancellationToken DiodsBlinkToken = (CancellationToken)CancelationObj;
@@ -210,6 +242,12 @@ namespace AccessControlReader.Devices
 
         public Task GreenLight(object CancelationObj)
         {
+            if (!gpioController.IsPinOpen(PinGreenLight))
+            {
+                errorEvent(GetType(), "Green diod pin closed", 74, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+                return null;
+            }
+
             Task task = new(() =>
             {
                 CancellationToken DiodsBlinkToken = (CancellationToken)CancelationObj;
@@ -229,6 +267,12 @@ namespace AccessControlReader.Devices
 
         public Task RedLight(CancellationTokenSource CancelationObj)
         {
+            if (!gpioController.IsPinOpen(PinRedLight))
+            {
+                errorEvent(GetType(), "Red diod pin closed", 77, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+                return null;
+            }
+
             Task task = new(() =>
             {
                 gpioController.Write(PinRedLight, PinValue.High);
@@ -247,6 +291,12 @@ namespace AccessControlReader.Devices
 
         public Task RedLightBlink(CancellationTokenSource CancelationObj)
         {
+            if (!gpioController.IsPinOpen(PinRedLight))
+            {
+                errorEvent(GetType(), "Red diod pin closed", 77, ErrorImportant.Info, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+                return null;
+            }
+
             Task task = new(() =>
             {
                 while (!CancelationObj.IsCancellationRequested)

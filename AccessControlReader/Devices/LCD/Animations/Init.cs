@@ -1,5 +1,6 @@
 ﻿using System.Reflection.PortableExecutable;
 
+/*
 namespace AccessControlReader.LCD.Animation
 {
     internal partial class Animations
@@ -275,4 +276,4 @@ namespace AccessControlReader.LCD.Animation
 
         }
     }
-}
+}*/

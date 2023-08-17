@@ -1,6 +1,8 @@
-﻿namespace AccessControlReader.LCD.Animation
+﻿using Iot.Device.CharacterLcd;
+
+namespace AccessControlReader.LCD.Animation
 {
-    internal partial class Animations
+    class RFIDAnimation : Animation
     {
         // ╔═════╤═════╤═════╗
         // ║▒▒▒▒▒│▒▒▒▒▒│▒▒▒▒▒║
@@ -22,11 +24,12 @@
         // ║▒▒▒▒▒│█████│█████║
         // ╚═════╧═════╧═════╝
 
+        public RFIDAnimation() : base(150) { }
 
-        public static void RFIDAnimation(object CancelationObj)
+        public override void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token)
         {
-            CancellationToken token = (CancellationToken)CancelationObj;
-            const int StepTime = 150;
+            #region DeclareAnimationData
+            //const int CurrentStepTime = 150;
 
             byte[] sign4image1 = new byte[] { 0xF, 0x18, 0x10, 0x13, 0x13, 0x10, 0x10, 0x1F };
             byte[] sign5image1 = new byte[] { 0x1F, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1F };
@@ -48,6 +51,7 @@
             byte[] sign0image6 = new byte[] { 0x0, 0x1, 0x7, 0xC, 0x9, 0x1A, 0x12, 0x12};
             byte[] sign1image6 = new byte[] { 0x0, 0x18, 0xE, 0x3, 0x19, 0x5, 0x15, 0x15};
             byte[] sign3image6 = new byte[] { 0x1A, 0x9, 0x4, 0x3, 0x0, 0x0, 0x0, 0x0 };
+            #endregion
 
             while (!token.IsCancellationRequested)
             {
@@ -73,7 +77,7 @@
 
                 for (int i = 0; i < 4; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                       break;
@@ -87,7 +91,7 @@
 
                 for (int i = 0; i < 4; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                       break;
@@ -96,7 +100,7 @@
                 lock (send_lock)
                     Screen.CreateCustomCharacter(1, sign1image2);
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                   break;
 
@@ -106,7 +110,7 @@
                     Screen.CreateCustomCharacter(1, sign1image3);
                     Screen.CreateCustomCharacter(3, sign3image3);
                 }
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                   break;
 
@@ -116,7 +120,7 @@
                     Screen.CreateCustomCharacter(1, sign1image4);
                     Screen.CreateCustomCharacter(3, sign3image4);
                 }
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                   break;
 
@@ -126,7 +130,7 @@
                     Screen.CreateCustomCharacter(1, sign1image5);
                     Screen.CreateCustomCharacter(3, sign3image5);
                 }
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                   break;
 
@@ -138,13 +142,11 @@
                 }
                 for (int i = 0; i < 12; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                       break;
                 }
-
-                finishAnim.Set();
             }
 
             byte[] EmptySign = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };

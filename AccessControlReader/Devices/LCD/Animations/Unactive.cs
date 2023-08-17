@@ -1,6 +1,8 @@
-﻿namespace AccessControlReader.LCD.Animation
+﻿using Iot.Device.CharacterLcd;
+
+namespace AccessControlReader.LCD.Animation
 {
-    internal partial class Animations
+    class UnactiveAnimation : Animation
     {
         // ╔═════╤═════╤═════╗
         // ║▒▒▒▒▒│█████│▒▒▒▒▒║
@@ -22,34 +24,11 @@
         // ║▒▒▒▒▒│█████│▒▒▒▒▒║
         // ╚═════╧═════╧═════╝
 
-        public static void UnactiveAnimation(object objects)
+        public UnactiveAnimation() : base(90) { }
+
+        public override void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token)
         {
-            if (objects is not object[] objectsArray || objectsArray.Length != 2)
-            {
-                throw new ArgumentException("objects must be initialized and its size must be 2.");
-            }
-
-            bool loop;
-            try
-            {
-                loop = (bool)objectsArray[0];
-            }
-            catch
-            {
-                throw new ArgumentException("objects[0] must be the bool loop");
-            }
-
-            CancellationToken token;
-            try
-            {
-                token = (CancellationToken)objectsArray[1];
-            }
-            catch
-            {
-                throw new ArgumentException("objects[1] must be the CancellationToken");
-            }
-
-            const int StepTime = 90;
+            #region DeclareAnimationData
 
             byte[][] fullIcon = new byte[][] 
                                { new byte[] { 0x0,  0x3,  0x6,  0xC,  0x8,  0x18, 0x18, 0x18}, 
@@ -62,6 +41,7 @@
 
             byte emptyLine = 0x00;
             byte fullLine = 0x1F;
+            #endregion
 
             while (!token.IsCancellationRequested)
             {
@@ -87,7 +67,7 @@
 
                 for (int i = 0; i < 5; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                       break;
@@ -152,21 +132,18 @@
                     if (token.IsCancellationRequested)
                         break;
 
-                    finishAnim.Set();
-
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
                 }
 
                 for (int i = 0; i < 15; ++i)
                 {
-                    Thread.Sleep(StepTime);
-
-                    if (!loop)
-                        i = 0;
-
+                    Thread.Sleep(CurrentStepTime);
                     if (token.IsCancellationRequested)
                         break;
-                }      
+                }
+
+                if (!loop)
+                    token.Token.WaitHandle.WaitOne();
             }
 
             byte[] EmptySign = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
