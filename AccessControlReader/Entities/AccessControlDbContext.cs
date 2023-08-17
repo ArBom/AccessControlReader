@@ -9,8 +9,6 @@ using System.Xml.Linq;
 
 namespace AccessControlReader.Entities
 {
-    //TODO zdarzenia błędu
-
     internal class AccessControlDbContext : DbContext
     {
         readonly string ConnectionString;

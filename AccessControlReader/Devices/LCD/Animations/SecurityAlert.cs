@@ -1,6 +1,8 @@
-﻿namespace AccessControlReader.LCD.Animation
+﻿using Iot.Device.CharacterLcd;
+
+namespace AccessControlReader.LCD.Animation
 {
-    internal partial class Animations
+    class SecurityAlertAnimation : Animation
     {
         // ╔═════╤═════╤═════╗
         // ║▒▒▒▒▒│▒▒█▒▒│▒▒▒▒▒║
@@ -22,10 +24,12 @@
         // ║█████│█████│█████║
         // ╚═════╧═════╧═════╝
 
-        public static void SecurityAlertAnimation(object CancelationObj)
+        public SecurityAlertAnimation() : base(750) { }
+
+        public override void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token)
         {
-            CancellationToken token = (CancellationToken)CancelationObj;
-            const int StepTime = 750;
+            #region DeclareAnimationData
+            //const int CurrentStepTime = 750;
 
             byte[][] image0 = new byte[][]
                   { new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
@@ -50,6 +54,7 @@
                                    new byte[]{ 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                    new byte[]{ 0xE, 0xE, 0xE, 0x0, 0xE, 0xE, 0xE, 0x0},
                                    new byte[]{ 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},};
+            #endregion
 
             while (!token.IsCancellationRequested)
             {
@@ -59,7 +64,7 @@
                         Screen.CreateCustomCharacter(i, image1[i]);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -69,7 +74,7 @@
                         Screen.CreateCustomCharacter(i, image2[i]);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
             }

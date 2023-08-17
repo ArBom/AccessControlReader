@@ -1,6 +1,8 @@
-﻿namespace AccessControlReader.LCD.Animation
+﻿using Iot.Device.CharacterLcd;
+
+namespace AccessControlReader.LCD.Animation
 {
-    internal partial class Animations
+    class OpenAlertAnimation : Animation
     {
         // ╔═════╤═════╤═════╗
         // ║▒▒▒▒▒│▒▒▒▒▒│▒▒▒▒▒║
@@ -22,11 +24,11 @@
         // ║▒▒▒▒▒│▒▒▒▒▒│▒▒▒▒▒║
         // ╚═════╧═════╧═════╝
 
-        public static void OpenAlertAnimation(object CancelationObj)
-        {
-            CancellationToken token = (CancellationToken)CancelationObj;
+        public OpenAlertAnimation() : base(110) { }
 
-            const int StepTime = 110;
+        public override void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token)
+        {
+            #region DeclareAnimationData
 
             byte[][] image0 = new byte[][]
                   { new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
@@ -84,6 +86,8 @@
             byte[] sign3image10 = new byte[] { 0x10, 0x10, 0x10, 0x10, 0x8, 0x4, 0x0, 0x0 };
             byte[] sign5image10 = new byte[] { 0x1, 0x1, 0x1, 0x1, 0x2, 0x4, 0x0, 0x0 };
 
+            #endregion
+
             // ╔═╤═╤═╗
             // ║0│1│2║
             // ╟─┼─┼─╢
@@ -96,7 +100,7 @@
                     Screen.CreateCustomCharacter(i, image0[i]);
             }
 
-            Thread.Sleep(StepTime);
+            Thread.Sleep(CurrentStepTime);
 
             lock (send_lock)
             {
@@ -106,7 +110,7 @@
 
             while (!token.IsCancellationRequested)
             {
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -118,7 +122,7 @@
                     Screen.CreateCustomCharacter(5, sign5image2);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -130,7 +134,7 @@
                     Screen.CreateCustomCharacter(5, sign5image3);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -142,7 +146,7 @@
                     Screen.CreateCustomCharacter(5, sign5image4);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -154,7 +158,7 @@
                     Screen.CreateCustomCharacter(5, sign5image5);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -166,7 +170,7 @@
                     Screen.CreateCustomCharacter(5, sign5image6);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -178,7 +182,7 @@
                     Screen.CreateCustomCharacter(5, sign5image7);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -190,7 +194,7 @@
                     Screen.CreateCustomCharacter(5, sign5image8);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -202,7 +206,7 @@
                     Screen.CreateCustomCharacter(5, sign5image9);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -214,7 +218,7 @@
                     Screen.CreateCustomCharacter(5, sign5image10);
                 }
 
-                Thread.Sleep(StepTime);
+                Thread.Sleep(CurrentStepTime);
                 if (token.IsCancellationRequested)
                     break;
 
@@ -228,13 +232,14 @@
 
                 for (int i = 0; i < 3; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                         break;
                 }
 
-                finishAnim.Set();
+                if(!loop)
+                    token.Token.WaitHandle.WaitOne();
             }
 
             lock (send_lock)

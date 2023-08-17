@@ -1,41 +1,36 @@
 ﻿using AccessControlReader.Entities;
 using AccessControlReader.StateMachine;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Reflection.PortableExecutable;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using System.Xml.Linq;
 
 namespace AccessControlReader
 {
-    internal class AccessControlDb
+    internal sealed class AccessControlDb
     {
         private readonly AccessControlDbContext ACDbC;
         public StateEvent DataBaseEvent;
         private int? ThisReaderID;
         private int? ThisReaderTier;
 
+        public static ErrorEvent errorEvent;
+
         public AccessControlDb(XElement Config)
         {
             if (Config is null)
             {
-                throw new ArgumentException(); //TODO
+                errorEvent(GetType(), "AcCoDb: Config is null", 20, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.XML, ErrorTypeIcon.SQL });
             }
 
             string ConnectionString = Config.Element("ConnectionString")?.Value;
 
             if (String.IsNullOrEmpty(ConnectionString))
             {
-                throw new ArgumentException(); //TODO
+                errorEvent(GetType(), "No conn.-string", 7, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.XML, ErrorTypeIcon.SQL });
             }
 
             if (ConnectionString == "❗❗❗ INSERT IT HERE ❗❗❗")
             {
-                Console.WriteLine("Change the connection string at file on desktop");
-                throw new ArgumentException(); //TODO
+                errorEvent(GetType(), "Set conn.-string", 8, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.XML, ErrorTypeIcon.SQL });
             }
 
             ThisReaderID = null;
@@ -49,7 +44,7 @@ namespace AccessControlReader
             bool CanConnect = ACDbC.Database.CanConnect();
             if(!CanConnect)
             {
-                //TODP info o błędzie
+                errorEvent(GetType(), "No SQL connection", 9, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.XML, ErrorTypeIcon.SQL, ErrorTypeIcon.LAN });
                 Console.WriteLine("Nie można połączyć się z SQL");
             }
 
@@ -74,12 +69,14 @@ namespace AccessControlReader
             }
 
             //Pobranie danych o karcie
-            var sqlCard = ACDbC.CardItems.Where(x => x.Card_ID_number == Id)?.Select(x => new { x.Card_ID, x.Tier, x.User_ID})?.First();
+            var sqlCard = ACDbC.CardItems.
+                          Where(x => x.Card_ID_number == Id)?.
+                          Select(x => new { x.Card_ID, x.Tier, x.User_ID})?.
+                          First();
 
             Console.WriteLine("Pobrałem dane o karcie " + Id);
 
             //sprawdzenie czy karta jest zapisana w sql, uzyskanie tier i userid
-
             if (sqlCard.Tier < ThisReaderTier)
             {
                 //za słaba karta
@@ -109,13 +106,12 @@ namespace AccessControlReader
 
             var newReading = ACDbC.Set<Reading>();
             newReading.Add(ReadingToAdd);
-
-            int addingres = ACDbC.SaveChanges();
+            ACDbC.SaveChanges();
         }
 
         private void ValidCardProc(int Card_ID, int User_ID)
         {
-            var sqlUser = ACDbC.UsersItems.Where(x => x.User_ID == User_ID)?.First();
+            var sqlUser = ACDbC.UsersItems.Where(x => x.User_ID == User_ID)?.AsNoTracking().First();
 
             //Zapis do DB
             Reading ReadingToAdd = new()
@@ -133,6 +129,26 @@ namespace AccessControlReader
             int addingres = ACDbC.SaveChanges();
             string ToShow = sqlUser.FirstName.ToArray()[0] + @". " + sqlUser.LastName; 
             DataBaseEvent?.Invoke(EventType.CorrectCard, ToShow);
+        }
+
+        public async Task SendErrorInfoAsync(int ErrNo, string message)
+        {
+            if (ThisReaderID is null)
+                return;
+
+            if (!CanConnect())
+                return;
+
+            if (await ACDbC.ReadersItems.FindAsync(ThisReaderID) is Reader found)
+            {
+                if (found.ErrorNo <= ErrNo)
+                    return;
+
+                found.ErrorNo = ErrNo;
+                found.Comment = message;
+
+                await ACDbC.SaveChangesAsync();
+            }
         }
 
         public ReaderData? UpdateReader(string MacAddr)
@@ -174,7 +190,7 @@ namespace AccessControlReader
             if (ThisReaderID is null)
             {
                 Console.WriteLine("UpdateReader() inside AccessControlDb: ThisReaderID is null");
-                //TODO poinformowanie o błędzie 
+                errorEvent(GetType(), "No reader Id", 22, ErrorImportant.Critical, new ErrorTypeIcon[] { ErrorTypeIcon.Internal });
                 return null;
             }
 
@@ -183,12 +199,12 @@ namespace AccessControlReader
             if (!CanConnect())
                 return null;
 
-            Reader ReaderInSQL = ACDbC.ReadersItems.Where(x => x.Reader_ID == ThisReaderID.Value)?.First();
+            Reader ReaderInSQL = ACDbC.ReadersItems.Where(x => x.Reader_ID == ThisReaderID.Value)?.AsNoTracking().First(); //TODO sprawdzić to
 
             if (ReaderInSQL is null)
             {
                 Console.WriteLine("UpdateReader() inside AccessControlDb: ReaderInSQL is null");
-                //TODO poinformowanie o błędzie 
+                errorEvent(GetType(), "Reader removed from SQL", 2, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.XML, ErrorTypeIcon.SQL });
                 return null;
             }
 

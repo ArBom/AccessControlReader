@@ -1,50 +1,19 @@
-﻿namespace AccessControlReader.LCD.Animation
+﻿using Iot.Device.CharacterLcd;
+
+namespace AccessControlReader.LCD.Animation
 {
-    internal partial class Animations
+    class ErrorAnimation : Animation
     {
-        public static void ErrorAnimation(object objects)
+        readonly ErrorTypeIcon[] errorTypeIcons;
+
+        public ErrorAnimation(ErrorTypeIcon[] errorTypeIcons) : base(0)
         {
-            if (objects is not object[] objectsArray || objectsArray.Length != 2 || objectsArray.Length != 3)
-            {
-                throw new ArgumentException("objects must be initialized and its size must be 2 or 3");
-            }
+            this.errorTypeIcons = errorTypeIcons;
+        }
 
-            bool loop;
-            try
-            {
-                loop = (bool)objectsArray[0];
-            }
-            catch
-            {
-                throw new ArgumentException("objects[0] must be the bool loop");
-            }
-
-            CancellationToken token;
-            try
-            {
-                token = (CancellationToken)objectsArray[1];
-            }
-            catch
-            {
-                throw new ArgumentException("objects[1] must be the CancellationToken");
-            }
-
-            ErrorTypeIcon? errorTypeIcon;
-            if (objectsArray.Length >= 3)
-            {
-                try
-                {
-                    errorTypeIcon = (ErrorTypeIcon)objectsArray[2];
-                }
-                catch
-                {
-                    throw new ArgumentException("objects[2] must be the ErrorTypeIcon");
-                }
-            }
-            else
-                errorTypeIcon = null;
-
-
+        public override void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token)
+        {
+            #region DeclareAnimationData
             byte[][] empty = new byte[][]
                               { new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
@@ -216,6 +185,33 @@
                                       new byte[] { 0x17, 0x14, 0x17, 0x14, 0x7, 0x1C, 0x10, 0x10},};
 
             // ╔═════╤═════╤═════╗
+            // ║▒▒▒▒▒│▒██▒▒│▒▒▒▒▒║
+            // ║▒▒▒▒▒│█▒█▒▒│▒▒▒▒▒║
+            // ║▒▒▒▒▒│▒▒█▒▒│▒▒▒▒▒║
+            // ║▒▒▒▒█│▒▒█▒▒│▒▒▒▒▒║
+            // ║████▒│▒▒█▒█│▒▒▒▒▒║
+            // ║█▒▒█▒│▒▒██▒│▒▒▒▒▒║
+            // ║█▒▒█▒│▒▒██▒│▒▒▒▒▒║
+            // ║█▒▒█▒│▒▒█▒▒│█▒▒▒▒║
+            // ╟─────┼─────┼─────╢
+            // ║█▒▒█▒│▒█▒▒█│▒█▒▒▒║
+            // ║█▒▒█▒│▒█▒▒█│▒█▒▒▒║
+            // ║█▒▒█▒│█▒▒▒█│▒▒█▒▒║
+            // ║████▒│█▒▒▒█│▒▒█▒▒║
+            // ║▒▒▒▒█│▒▒▒▒▒│▒▒▒█▒║
+            // ║▒▒▒▒▒│▒▒▒▒█│▒▒▒█▒║
+            // ║▒▒▒▒█│▒▒▒▒▒│▒▒▒▒█║
+            // ║▒▒▒▒█│█████│█████║
+            // ╚═════╧═════╧═════╝
+            byte[][] SPEKERicon = new byte[][]
+                                    { new byte[] { 0x0, 0x0, 0x0, 0x1, 0x1E, 0x12, 0x12, 0x12},
+                                      new byte[] { 0xC, 0x14, 0x4, 0x4, 0x5, 0x6, 0x6, 0x4},
+                                      new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x10},
+                                      new byte[] { 0x12, 0x12, 0x12, 0x1E, 0x1, 0x0, 0x1, 0x1},
+                                      new byte[] { 0x9, 0x9, 0x11, 0x11, 0x0, 0x1, 0x0, 0x1F},
+                                      new byte[] { 0x8, 0x8, 0x4, 0x4, 0x2, 0x2, 0x1, 0x1F}, };
+
+            // ╔═════╤═════╤═════╗
             // ║▒▒▒▒▒│▒▒▒▒█│▒▒▒▒▒║
             // ║▒▒▒▒▒│▒▒▒█▒│▒▒▒▒▒║
             // ║▒▒▒▒▒│▒▒█▒▒│▒▒▒▒▒║
@@ -241,53 +237,101 @@
                                    new byte[] {0x0, 0x0, 0x0, 0x6, 0x6, 0x0, 0x0, 0x0},
                                    new byte[] {0x18, 0x18, 0x8, 0x8, 0xC, 0x4, 0x2, 0x1},
                                    new byte[] {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},};
+            #endregion
+
+            int CurrentIconInt = 0;
+            ErrorTypeIcon? CurrentIconType = null;
 
             while (!token.IsCancellationRequested)
             {
-                for (int i = 0; i < 6; i++)
-                    Screen.CreateCustomCharacter(i, empty[i]);
+                lock (send_lock)
+                {
+                    for (int i = 0; i < 6; i++)
+                        Screen.CreateCustomCharacter(i, empty[i]);
+                }
 
-                Thread.Sleep(50);
+                if (errorTypeIcons is not null)
+                {
+                    if (errorTypeIcons.Length > CurrentIconInt)
+                        CurrentIconInt++;
+                    else
+                        CurrentIconInt = 0;
 
+                    CurrentIconType = errorTypeIcons[CurrentIconInt];
+                }
+
+                Thread.Sleep(100);
                 if (token.IsCancellationRequested)
                     break;
 
-                switch(errorTypeIcon) //TODO dodać resztę
+                lock (send_lock)
                 {
-                    case ErrorTypeIcon.LAN:
-                        for (int i = 0; i < 6; i++)
-                            Screen.CreateCustomCharacter(i, NETWORKicon[i]);
-                        break;
+                    switch (CurrentIconType)
+                    {
+                        case ErrorTypeIcon.LAN:
 
-                    case ErrorTypeIcon.SQL:
-                        for (int i = 0; i < 6; i++)
-                            Screen.CreateCustomCharacter(i, SQLicon[i]);
-                        break;
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, NETWORKicon[i]);
+                            break;
 
-                    case ErrorTypeIcon.RFID:
-                        for (int i = 0; i < 6; i++)
-                            Screen.CreateCustomCharacter(i, RFIDicon[i]);
-                        break;
+                        case ErrorTypeIcon.SQL:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, SQLicon[i]);
+                            break;
 
-                    case null:
-                        break;
+                        case ErrorTypeIcon.RFID:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, RFIDicon[i]);
+                            break;
+
+                        case ErrorTypeIcon.XML:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, XMLicon[i]);
+                            break;
+
+                        case ErrorTypeIcon.Hardware:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, HARDWAREicon[i]);
+                            break;
+
+                        case ErrorTypeIcon.Internal:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, INTERNALicon[i]);
+                            break;
+
+                        case ErrorTypeIcon.Speaker:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, SPEKERicon[i]);
+                            break;
+
+                        case null:
+                            for (int i = 0; i < 6; i++)
+                                Screen.CreateCustomCharacter(i, ERRicon[i]);
+                            break;
+                    }
+                }
+
+                Thread.Sleep(900);
+                if (token.IsCancellationRequested)
+                    break;
+
+                lock (send_lock)
+                {
+                    for (int i = 0; i < 6; i++)
+                        Screen.CreateCustomCharacter(i, empty[i]);
+                }
+
+                Thread.Sleep(50);
+                if (token.IsCancellationRequested)
+                    break;
+
+                lock (send_lock)
+                {
+                    for (int i = 0; i < 6; i++)
+                        Screen.CreateCustomCharacter(i, ERRicon[i]);
                 }
 
                 Thread.Sleep(450);
-
-                if (token.IsCancellationRequested)
-                    break;
-
-                for (int i = 0; i < 6; i++)
-                    Screen.CreateCustomCharacter(i, empty[i]);
-
-                Thread.Sleep(50);
-
-                for (int i = 0; i < 6; i++)
-                    Screen.CreateCustomCharacter(i, ERRicon[i]);
-
-                Thread.Sleep(450);
-
                 if (token.IsCancellationRequested)
                     break;
             }

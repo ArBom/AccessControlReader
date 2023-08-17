@@ -1,84 +1,77 @@
 ﻿using Iot.Device.CharacterLcd;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Threading;
 
 namespace AccessControlReader.LCD.Animation
 {
+    abstract class Animation
+    {
+        readonly private int DefaultStepTime;
+
+        protected int CurrentStepTime { private set; get; }
+
+        protected Animation(int DefaultStepTime)
+        {
+            this.DefaultStepTime = DefaultStepTime;
+            CurrentStepTime = DefaultStepTime;
+        }
+        public abstract void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token);
+        public int PauseAnimation(int PauseTime)
+        {
+            CurrentStepTime = PauseTime;
+            Task.Factory.StartNew(() =>
+            {
+                Task.Delay(PauseTime - DefaultStepTime);
+                CurrentStepTime = DefaultStepTime;
+            });
+
+            return DefaultStepTime;
+        }
+    }
+
     internal static partial class Animations
     {
-        static CancellationTokenSource CancellationTokenAnimationThread;
-        private static Lcd1602 Screen;
-        private static ManualResetEvent finishAnim;
-        private static object send_lock;
+        private static Task CurrentAnimation = null;
 
-        public static void StartAnimation(Lcd1602 screen, AnimationType animationType, ref object lockScreenObj, CancellationTokenSource CancelAnimTaken, bool loop, params object[] listOfParams)
+        public static void StartAnimation(Lcd1602 screen, AnimationType animationType, object send_lock, CancellationTokenSource CancelAnimTaken, bool loop, params ErrorTypeIcon[] listOfParams)
         {
-            Screen = screen;
-            send_lock = lockScreenObj;
-
-            lock (lockScreenObj)
-            {
-                Screen.SetCursorPosition(0, 0);
-                //char[] upline = new char[] { (char)0, (char)1, (char)2 };
-                Screen.Write(new char[] { (char)0, (char)1, (char)2 });
-                //Screen.Write(new String(new char[] { (char)0 }));
-                //Screen.Write(new String(new char[] { (char)1 }));
-                //Screen.Write(new String(new char[] { (char)2 }));
-
-                Screen.SetCursorPosition(0, 1);
-                Screen.Write(new char[] { (char)3, (char)4, (char)5 });
-                /*Screen.Write(new String(new char[] { (char)3 }));
-                Screen.Write(new String(new char[] { (char)4 }));
-                Screen.Write(new String(new char[] { (char)5 }));*/
-            }
-
-            CancellationTokenAnimationThread = CancelAnimTaken;
-            finishAnim = new ManualResetEvent(false);
+            Animation currentAnimClass = null;
 
             switch (animationType)
             {
                 case AnimationType.Unactive:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(UnactiveAnimation), new object[] { loop, CancellationTokenAnimationThread.Token });
+                    currentAnimClass = new UnactiveAnimation();
                     break;
 
                 case AnimationType.RFID:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(RFIDAnimation), CancellationTokenAnimationThread.Token);
+                    currentAnimClass = new RFIDAnimation();
                     break;
 
                 case AnimationType.Open:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(OpenAnimation), CancellationTokenAnimationThread.Token);
+                    currentAnimClass = new OpenAnimation();
                     break;
 
                 case AnimationType.Info:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(InfoAnimation), CancellationTokenAnimationThread.Token);
+                    currentAnimClass = new InfoAnimation();
                     break;
 
                 case AnimationType.OpenAlert:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(OpenAlertAnimation), CancellationTokenAnimationThread.Token);
+                    currentAnimClass = new OpenAlertAnimation();
                     break;
 
                 case AnimationType.SecurityAlert:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(SecurityAlertAnimation), CancellationTokenAnimationThread.Token);
+                    currentAnimClass = new SecurityAlertAnimation();
                     break;
 
                 case AnimationType.Hand:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(HandAnimation), CancellationTokenAnimationThread.Token);
+                    currentAnimClass = new HandAnimation();
                     break;
 
                 case AnimationType.Error:
-                    _ = ThreadPool.QueueUserWorkItem(new WaitCallback(ErrorAnimation), new object[] { true, CancellationTokenAnimationThread.Token, });
+                    currentAnimClass = new ErrorAnimation(listOfParams);
                     break;
             }
-        }
 
-        private static void CancelIconAnim()
-        {
-            CancellationTokenAnimationThread.Cancel();
-            CancellationTokenAnimationThread = new CancellationTokenSource();
+            CurrentAnimation?.Dispose();
+            CurrentAnimation = Task.Run(() => currentAnimClass.StartAnimations(screen, send_lock, loop, CancelAnimTaken));
         }
     }
 }

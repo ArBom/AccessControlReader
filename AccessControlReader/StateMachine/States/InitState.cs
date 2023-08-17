@@ -6,13 +6,8 @@ namespace AccessControlReader.StateMachine.States
 {
     internal class InitState : State
     {
-        private string _macAddr;
-        public string macAddr
-        {
-            get { return _macAddr; }
-        }
-
-        private string ipAddr = null;
+        public string macAddr = "not found";
+        public string ipAddr = "not connected";
 
         public InitState(string details) : base(details) 
         { 
@@ -33,19 +28,10 @@ namespace AccessControlReader.StateMachine.States
             string version = VersionInfo.ProductVersion;
 
             Console.WriteLine("Version............: " + version);
-
-            var NetwInt = from NI in NetworkInterface.GetAllNetworkInterfaces()
-                    where NI.NetworkInterfaceType == NetworkInterfaceType.Ethernet
-                    where NI.OperationalStatus == OperationalStatus.Up
-                    select NI;
-
-            _macAddr = NetwInt?.First().GetPhysicalAddress().ToString();
-            Console.WriteLine("MAC addr...........: " + _macAddr);
-
-            ipAddr = NetwInt?.First().GetIPProperties().UnicastAddresses.First().Address.ToString();
+            Console.WriteLine("MAC addr...........: " + macAddr);
             Console.WriteLine("IP addr............: " + ipAddr);
 
-            Task infoShowing = new Task(() => 
+            Task infoShowing = new(() => 
             {
                 while (_screen is null)
                     Task.Delay(250);
@@ -59,7 +45,7 @@ namespace AccessControlReader.StateMachine.States
                     if (_currentState_CancelationTokenSource.IsCancellationRequested)
                         break;
 
-                    _screen?.Write(@"MAC address:\n" + _macAddr);
+                    _screen?.Write(@"MAC address:\n" + macAddr);
                     Task.Delay(2000).Wait();
                     if (_currentState_CancelationTokenSource.IsCancellationRequested)
                         break;

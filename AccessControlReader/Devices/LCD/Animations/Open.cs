@@ -1,6 +1,8 @@
-﻿namespace AccessControlReader.LCD.Animation
+﻿using Iot.Device.CharacterLcd;
+
+namespace AccessControlReader.LCD.Animation
 {
-    internal partial class Animations
+    class OpenAnimation : Animation
     {
         // ╔═════╤═════╤═════╗
         // ║▒▒▒▒▒│▒▒▒▒▒│▒▒▒▒▒║
@@ -22,11 +24,12 @@
         // ║▒▒▒▒▒│▒▒▒▒▒│▒▒▒▒▒║
         // ╚═════╧═════╧═════╝
 
-        public static void OpenAnimation(object CancelationObj)
-        {
-            CancellationToken token = (CancellationToken)CancelationObj;
+        public OpenAnimation() : base(130) { }
 
-            int StepTime = 120;
+        public override void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token)
+        {
+            #region DeclareAnimationData
+            //int StepTime = 120;
 
             byte[][] image0 = new byte[][]
                               { new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
@@ -134,6 +137,7 @@
 
             byte[][][] images = new byte[][][]
                              {  image1, image2, image3, image4, image5, image5, image6, image7, image8, image9, image10, image11, image12};
+            #endregion
 
             while (!token.IsCancellationRequested)
             {
@@ -145,7 +149,7 @@
 
                 for (int i = 0; i < 3; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                       break;
@@ -159,20 +163,21 @@
                             Screen.CreateCustomCharacter(j, images[i][j]);
                     }
 
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
                     if (token.IsCancellationRequested)
                       break;
                 }
 
                 for (int i = 0; i < 5; ++i)
                 {
-                    Thread.Sleep(StepTime);
+                    Thread.Sleep(CurrentStepTime);
 
                     if (token.IsCancellationRequested)
                       break;
                 }
 
-                finishAnim.Set();
+                if(!loop)
+                    token.Token.WaitHandle.WaitOne();
             }
 
             lock (send_lock)

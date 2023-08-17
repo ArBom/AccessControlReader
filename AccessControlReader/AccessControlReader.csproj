@@ -8,6 +8,7 @@
     <IsPublishable>False</IsPublishable>
     <SignAssembly>False</SignAssembly>
     <Configurations>Debug;Release</Configurations>
+    <Version>1.0.1-beta</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -68,7 +69,6 @@
     </PackageReference>
     <PackageReference Include="NetCoreAudio" Version="1.7.0" />
     <PackageReference Include="System.Device.Gpio" Version="2.2.0" />
-    <PackageReference Include="System.Windows.Extensions" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>
