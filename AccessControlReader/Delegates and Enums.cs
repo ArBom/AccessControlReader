@@ -11,8 +11,13 @@
     public enum ErrorImportant { Info = 1, Warning = 2, Critical = 3 }
 
     public struct Error
-    { 
-        public ErrorImportant errorImportant;
-        public int ErrorNum; 
+    {
+        public Error(ErrorImportant errorImportant, int ErrorNum)
+        {
+            this.errorImportant = errorImportant;
+            this.ErrorNum = ErrorNum;
+        }
+        public ErrorImportant errorImportant { get; init; }
+        public int ErrorNum { get; init; }
     }
 }

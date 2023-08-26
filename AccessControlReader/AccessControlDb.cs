@@ -199,7 +199,7 @@ namespace AccessControlReader
             if (!CanConnect())
                 return null;
 
-            Reader ReaderInSQL = ACDbC.ReadersItems.Where(x => x.Reader_ID == ThisReaderID.Value)?.AsNoTracking().First(); //TODO sprawdzić to
+            Reader ReaderInSQL = ACDbC.ReadersItems.Where(x => x.Reader_ID == ThisReaderID.Value)?.AsNoTracking().First();
 
             if (ReaderInSQL is null)
             {

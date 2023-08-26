@@ -70,6 +70,10 @@ namespace AccessControlReader
             task.Start();
         }
 
+        /// <summary>
+        /// Play a sound of "noiseType"
+        /// </summary>
+        /// <param name="CancelationObj">if it exist its a looped sound</param>
         private void Play(NoiseType noiseType, params CancellationTokenSource[] CancelationObj)
         {
             if (player is null)

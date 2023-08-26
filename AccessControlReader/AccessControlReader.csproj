@@ -8,7 +8,7 @@
     <IsPublishable>False</IsPublishable>
     <SignAssembly>False</SignAssembly>
     <Configurations>Debug;Release</Configurations>
-    <Version>1.0.1-beta</Version>
+    <Version>1.0.2-beta</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -14,6 +14,7 @@ namespace AccessControlReader.LCD.Animation
             CurrentStepTime = DefaultStepTime;
         }
         public abstract void StartAnimations(Lcd1602 Screen, object send_lock, bool loop, CancellationTokenSource token);
+
         public int PauseAnimation(int PauseTime)
         {
             CurrentStepTime = PauseTime;
@@ -27,14 +28,73 @@ namespace AccessControlReader.LCD.Animation
         }
     }
 
-    internal static partial class Animations
+    class Animations
     {
-        private static Task CurrentAnimation = null;
+        private Task CurrentAnimation = null;
+        private Animation currentAnimClass;
 
-        public static void StartAnimation(Lcd1602 screen, AnimationType animationType, object send_lock, CancellationTokenSource CancelAnimTaken, bool loop, params ErrorTypeIcon[] listOfParams)
+        readonly private Lcd1602 screen;
+        readonly private object send_lock;
+
+        public Animations(Lcd1602 screen, object send_lock) 
         {
-            Animation currentAnimClass = null;
+            this.screen = screen;
+            this.send_lock = send_lock;
+        }
 
+        public void ShowErrorIcons(ErrorImportant errorImportant,
+                                   ErrorTypeIcon[] listOfParams,
+                                   CancellationTokenSource? cancellationTokenSource)
+        {
+            int TimeOfErrorAnimation = 0;
+
+            switch (errorImportant)
+            {
+                case ErrorImportant.Info:
+                    //Show info error for 10s
+                    TimeOfErrorAnimation = 10_000; 
+                    break;
+
+                case ErrorImportant.Warning:
+                    //Show warning error for 60s
+                    TimeOfErrorAnimation = 60_000;
+                    break;
+
+                case ErrorImportant.Critical:
+                    //Show critical error for 1h
+                    TimeOfErrorAnimation = 36_00_000;
+                    break;
+            }
+
+            int TimeToWait = 0;
+            if (currentAnimClass is not null)
+            {
+                TimeToWait = currentAnimClass.PauseAnimation(TimeOfErrorAnimation);
+            }
+
+            var a = new ErrorAnimation(listOfParams);
+
+            CancellationTokenSource cancellationErrorAnim = cancellationTokenSource is not null ? cancellationTokenSource : new(); 
+
+            //wait for one frame of current animation
+            Task.Delay(TimeToWait);
+
+            //show error anim...
+            Task.Run(() => a.StartAnimations(screen, send_lock, true, cancellationErrorAnim));
+
+            //...and cancel it after time
+            try 
+            { cancellationErrorAnim.CancelAfter(TimeOfErrorAnimation); }
+            //There is no sens to catch it
+            catch { }
+            
+        }
+
+        public void StartAnimation(AnimationType animationType,
+                                   CancellationTokenSource CancelAnimTaken,
+                                   bool loop,
+                                   params ErrorTypeIcon[] listOfParams)
+        {
             switch (animationType)
             {
                 case AnimationType.Unactive:
@@ -70,8 +130,7 @@ namespace AccessControlReader.LCD.Animation
                     break;
             }
 
-            CurrentAnimation?.Dispose();
-            CurrentAnimation = Task.Run(() => currentAnimClass.StartAnimations(screen, send_lock, loop, CancelAnimTaken));
+            this.CurrentAnimation = Task.Run(() => currentAnimClass.StartAnimations(screen, send_lock, loop, CancelAnimTaken));
         }
     }
 }

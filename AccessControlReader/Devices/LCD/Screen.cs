@@ -29,6 +29,8 @@ namespace AccessControlReader.Devices
         //Does the screen show a icon in the left part
         private bool icon = true;
 
+        private readonly Animations animations;
+
         public Screen(XElement Config)
         {
             if (Config == null)
@@ -50,11 +52,18 @@ namespace AccessControlReader.Devices
 
             I2cDevice screenI2C = I2cDevice.Create(new I2cConnectionSettings(I2Cdevno, I2Caddr));
 
-            Span<byte> outbutBuff = new();
-            screenI2C.WriteRead(new byte[0x00], outbutBuff);
+            byte[] readData = new byte[3];
 
-            //todo
-            Console.WriteLine("Odp. wyświetlacza na zaczepkę: " + outbutBuff.ToString());
+            try
+            {
+                screenI2C.WriteRead(new byte[] { 0x00 }, readData);
+            }
+            catch (Exception ex) 
+            {
+                errorEvent(GetType(), ex.ToString(), 52, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
+                lcd = null;
+                return;
+            }
 
             this.lcd = new Lcd1602(screenI2C, Uses8Bit);
 
@@ -65,6 +74,8 @@ namespace AccessControlReader.Devices
                 lcd.Clear();
                 lcd.BacklightOn = true;
             }
+
+            animations = new Animations(this.lcd, send_lock);
 
             Write(@"LCD screen:\nOK");
         }
@@ -83,6 +94,9 @@ namespace AccessControlReader.Devices
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
                                 new byte[] { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},};
+
+                    if (lcd is null)
+                        return;
 
                     lock (send_lock)
                     {
@@ -104,6 +118,19 @@ namespace AccessControlReader.Devices
 
         public void Write(string ToWrite)
         {
+            if (String.IsNullOrEmpty(ToWrite))
+                return;
+
+            //updade the history
+            if (LastWrites[0] != ToWrite)
+            {
+                LastWrites[1] = LastWrites[0];
+                LastWrites[0] = ToWrite;
+            }
+
+            if (lcd is null)
+                return;
+
             if (icon)
             {
                 lock (send_lock)
@@ -126,16 +153,6 @@ namespace AccessControlReader.Devices
                 {
                     lcd.Clear();
                 }
-            }
-
-            if (String.IsNullOrEmpty(ToWrite))
-                return;
-
-            //updade the history
-            if (LastWrites[0] != ToWrite)
-            {
-                LastWrites[1] = LastWrites[0];
-                LastWrites[0] = ToWrite;
             }
 
             string newLineSep = @"\n";
@@ -178,8 +195,16 @@ namespace AccessControlReader.Devices
             }
         }
 
-        public void WriteErrorText(int ErrorNumber)
+        public void ShowError(Type senderType, string details, int number, ErrorImportant errorImportant, ErrorTypeIcon[] errorTypes)
         {
+            if (lcd is null)
+                return;
+
+            string upLine = "Error:" + number.ToString() + " " + senderType.Name;
+            string toShow = upLine + $"/n" + details;
+
+
+
             throw new NotImplementedException();
         }
 
@@ -187,18 +212,27 @@ namespace AccessControlReader.Devices
 
         public void DisplayLightOn()
         {
+            if (lcd is null)
+                return;
+
             lock (send_lock)
                 lcd.BacklightOn = true;
         }
 
         public void DisplayLightOff()
         {
+            if (lcd is null)
+                return;
+
             lock (send_lock)
                 lcd.BacklightOn = false;
         }
 
         public Task DisplayLightBlink(CancellationTokenSource CancelationObj)
         {
+            if (lcd is null)
+                return null;
+
             Task task = new(() =>
             {
                 while (!CancelationObj.IsCancellationRequested)
@@ -221,8 +255,11 @@ namespace AccessControlReader.Devices
 
         public void StartAnimation(AnimationType animationType, CancellationTokenSource CancelAnimTaken, bool loop, params ErrorTypeIcon[] listOfParams)
         {
+            if (lcd is null)
+                return;
+
             if (icon)
-                Animations.StartAnimation(lcd, animationType, send_lock, CancelAnimTaken, loop, listOfParams); //TODO sprawdzić czy nie referencja sendlocka
+                animations.StartAnimation(animationType, CancelAnimTaken, loop, listOfParams);
         }
 
         ~Screen()

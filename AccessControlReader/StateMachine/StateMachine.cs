@@ -1,6 +1,6 @@
 ﻿using AccessControlReader.Devices;
 using AccessControlReader.StateMachine.States;
-using Iot.Device.Mcp23xxx;
+using System.Data;
 using System.Net.NetworkInformation;
 using System.Timers;
 
@@ -11,7 +11,8 @@ namespace AccessControlReader.StateMachine
         private State ActualState;
         private readonly System.Timers.Timer CheckingMainStateTimer;
         private readonly System.Timers.Timer ExitFromWrongCardStateTimer;
-        private Nullable<Error> CurrentError;
+
+        public static ErrorEvent errorEvent;
 
         private GPIO _gpio;
         public GPIO gpio
@@ -85,18 +86,10 @@ namespace AccessControlReader.StateMachine
         }
 
         public StateMachine() 
-        { 
+        {
             ActualState = new InitState(null);
-            CurrentError = null;
 
-            GPIO.errorEvent += ErrorHappens;
-            Noises.errorEvent += ErrorHappens;
-            RC522.errorEvent += ErrorHappens;
-            Screen.errorEvent += ErrorHappens;
-            Configurator.errorEvent += ErrorHappens;
-            State.errorEvent += ErrorHappens;
-            AccessControlDb.errorEvent += ErrorHappens;
-
+            //Reader stop reading cards & shows info for 4s
             ExitFromWrongCardStateTimer = new System.Timers.Timer()
             {
                 Interval = 4000,
@@ -112,6 +105,8 @@ namespace AccessControlReader.StateMachine
             };
             CheckingMainStateTimer.Elapsed += CyclicCheckMainState;
             CheckingMainStateTimer.Start();
+
+            CyclicCheckMainState(null, null);
         }
 
         public void EnterNewState(EventType eventType, string details)
@@ -154,49 +149,6 @@ namespace AccessControlReader.StateMachine
             newState.OnEnter();
         }
 
-        private void ErrorHappens(Type senderType, string details, int number, ErrorImportant errorImportant, ErrorTypeIcon[] errorTypes)
-        {
-            //Currently its with error
-            if (CurrentError.HasValue)
-            {
-                //new error is less important than current
-                if (((int)errorImportant) < ((int)CurrentError.Value.errorImportant))
-                    //ignore new one
-                    return;
-
-                //new error is as important as current...
-                if (((int)errorImportant) == ((int)CurrentError.Value.errorImportant) &&
-                    //...but is in less relevant part of program
-                    number > CurrentError.Value.ErrorNum)
-                    //ignore new one
-                    return;
-            }
-
-            switch (errorImportant) 
-            {
-                case ErrorImportant.Critical:
-                    {
-
-                    }
-                    break;
-
-                case ErrorImportant.Warning:
-                    {
-
-                    }
-                    break;
-
-                case ErrorImportant.Info:
-                    {
-
-                    }
-                    break;
-            }
-            ////////
-            //TODO//
-            ////////
-        }
-
         private void UpdateInitStateData()
         {
             if (ActualState is not InitState initState)
@@ -209,7 +161,7 @@ namespace AccessControlReader.StateMachine
 
             if (!NetwInt.Any())
             {
-                ErrorHappens(this.GetType(), "No net. card", 3, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN, ErrorTypeIcon.Hardware });
+                errorEvent(this.GetType(), "No net. card", 3, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN, ErrorTypeIcon.Hardware });
                 return;
             }
 
@@ -219,7 +171,7 @@ namespace AccessControlReader.StateMachine
 
             if (!NetwIntUp.Any())
             {
-                ErrorHappens(this.GetType(), "No working net. card", 4, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN });
+                errorEvent(this.GetType(), "No working net. card", 4, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN });
                 return;
             }
 
@@ -230,7 +182,7 @@ namespace AccessControlReader.StateMachine
             }
             catch
             {
-                ErrorHappens(GetType(), "No MAC addr.", 5, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN, ErrorTypeIcon.Hardware });
+                errorEvent(GetType(), "No MAC addr.", 5, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN, ErrorTypeIcon.Hardware });
                 return;
             }
             initState.macAddr = macAddr;
@@ -241,21 +193,23 @@ namespace AccessControlReader.StateMachine
             }
             catch
             {
-                ErrorHappens(GetType(), "No IP addr.", 6, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN });
+                errorEvent(GetType(), "No IP addr.", 6, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.LAN });
                 return;
             }           
 
             ReaderData? newSQLdata = _accessControlDb?.UpdateReader(macAddr);
         }
 
-        private void CyclicCheckMainState(Object source, ElapsedEventArgs e)
+        private void CyclicCheckMainState(object source, ElapsedEventArgs e)
         {
             Console.WriteLine("sprawdzam czytnik w sql");
             ReaderData? newSQLdata;
 
             if (ActualState is InitState initState)
             {
-                string macAddr = ((InitState)ActualState).macAddr;
+                UpdateInitStateData();
+
+                string macAddr = initState.macAddr;
                 newSQLdata = _accessControlDb?.UpdateReader(macAddr);
 
                 if (newSQLdata is null)
