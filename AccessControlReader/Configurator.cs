@@ -1,4 +1,6 @@
-﻿using System.Xml;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace AccessControlReader
@@ -44,6 +46,35 @@ namespace AccessControlReader
             }
             else
             {
+                //Add programm to autorun in time of first run of it
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    string AutorunPath = $@"/home/{Environment.UserName}/.config/autostart";
+                    if (!Directory.Exists(AutorunPath))
+                    {
+                        Directory.CreateDirectory(AutorunPath);
+                    }
+
+                    string AutorunText;
+                    using (TextReader AutorunTextReader = new StreamReader("AccessControlReader.desktop"))
+                    {
+                        AutorunText = AutorunTextReader.ReadToEnd();
+                    }
+
+                    string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                    UriBuilder uriOfCodeBase = new UriBuilder(codeBase);
+                    string pathOfThisProgramm = Uri.UnescapeDataString(uriOfCodeBase.Path);
+                    string dotnetPath =  Environment.GetEnvironmentVariable("DOTNET_ROOT") + @"/dotnet";
+
+                    AutorunText = AutorunText.Replace("[Path]", Path.GetDirectoryName(pathOfThisProgramm));
+                    AutorunText = AutorunText.Replace("[Name]", Path.GetFileName(pathOfThisProgramm));
+                    AutorunText = AutorunText.Replace("[dotnet]", dotnetPath);
+
+                    AutorunPath = Path.Combine(AutorunPath, "AccessControlReader.desktop");
+                    File.WriteAllText(AutorunPath, AutorunText);
+                }
+
+                //Use and copy configurator file first time 
                 TextReader DefConfTR = null;
                 try
                 {

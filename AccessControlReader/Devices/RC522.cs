@@ -99,6 +99,11 @@ namespace AccessControlReader.Devices
 
                 if (mfRc522.ListenToCardIso14443TypeA(out card, new TimeSpan(0, 0, 0, 1)))
                 { }
+                else
+                {
+                    Console.WriteLine("Its not a Type-A card");
+                    return;
+                }
                 //TODO zbrejkować jeśli trzeba
                 
                 byte[] NFC_ID = card.NfcId;

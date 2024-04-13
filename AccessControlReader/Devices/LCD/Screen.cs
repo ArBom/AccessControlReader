@@ -14,6 +14,8 @@ namespace AccessControlReader.Devices
         readonly private bool Uses8Bit;
         readonly private Lcd1602 lcd;
 
+        public readonly bool ToDestroy;
+
         /// <summary>
         /// IMPORTANT: Only one task could send data to the screen in one moment
         /// </summary>
@@ -62,6 +64,7 @@ namespace AccessControlReader.Devices
             {
                 errorEvent(GetType(), ex.ToString(), 52, ErrorImportant.Warning, new ErrorTypeIcon[] { ErrorTypeIcon.Hardware });
                 lcd = null;
+                ToDestroy = true;
                 return;
             }
 
@@ -77,6 +80,7 @@ namespace AccessControlReader.Devices
 
             animations = new Animations(this.lcd, send_lock);
 
+            ToDestroy = false;
             Write(@"LCD screen:\nOK");
         }
 

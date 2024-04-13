@@ -1,0 +1,6 @@
+﻿[Desktop Entry]
+Type=Application
+Name=AccessControlReader
+Terminal=true
+Path=[Path]
+Exec=[dotnet] [Name]

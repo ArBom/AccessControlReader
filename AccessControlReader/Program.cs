@@ -19,6 +19,8 @@ stateMachine.noises = noises;
 errorMessages.noises = noises;
 
 Screen screen = new(configurator.XElementOfConfig("I2Cscreen"));
+if (screen.ToDestroy)
+    screen = null;
 stateMachine.screen = screen;
 errorMessages.screen = screen;
 

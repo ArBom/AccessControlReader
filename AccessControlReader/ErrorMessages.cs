@@ -90,7 +90,7 @@ namespace AccessControlReader
             screen?.ShowError(senderType, details, number, errorImportant, errorTypes);
 
             //Play noise of error
-            noises.PlayAsync(NoiseType.Error);
+            noises?.PlayAsync(NoiseType.Error);
         }
     }
 }
