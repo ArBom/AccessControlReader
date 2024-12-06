@@ -85,13 +85,15 @@ PM> NuGet\Install-Package System.Device.Gpio -Version 2.2.0
 
 In time of first run App it create .xml file on your desktop. You should change connection string inside it, and if it is necessary, devices properties.
 
-![connection string placement](https://onedrive.live.com/embed?resid=5B6E90429D9C8454%21343840&authkey=%21AP_X876Eg5EZ8uU&width=660&height=999999)
+![connection string placement](https://github.com/user-attachments/assets/9418ef80-7162-47f3-85c1-521a0ca150fc)
 
 
 ## Hardware
 Wire and devices connection schema consistent with default .xml file and most popular components' variant on market is featured bellow.
 Project foretakes a use of magnetic sensor to detect a door open, and monostable switch to open the door from inside.
-![wiring schema](https://onedrive.live.com/embed?resid=5B6E90429D9C8454%21343799&authkey=%21ALK-FBKf9opecAE&width=2082&height=2391)
+
+![wiring schema](https://github.com/user-attachments/assets/51cb5ded-a1d8-400d-9f7e-a382e9743545)
+
 Individual components may use different supply voltages. Make you sure they are connected correctly. Particular attention should be sensitive to the electric-bolt, and secure the rest of components. On schamat at above employed 24V-electic-bolt to open a door lock.
 In order to improve user-friendly communication and general make better design, several simple animations have been implemented, which are pesented in the table below. These animations are associated with states of device.
 
